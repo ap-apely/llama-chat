@@ -1,0 +1,19 @@
+
+__pycache__/config.cpython-310.pyc
+bot.db
+bot.session
+*.pyc
+Llama/backup/v1.0/llama.py
+Models/LLama(Text)/llama-8b-u.gguf
+Models/LlaVa(Image)/llava-phi-3-mini-int4.gguf
+Models/LlaVa(Image)/llava-phi-3-mini-mmproj-f16.gguf
+Modes/telegram/bot.session-journal
+Modes/webui/backup/v2/templates/index — копия.txt
+Modes/webui/backup/v2/templates/index.html
+Modes/webui/backup/v2/webui.py
+Modes/webui/backup/v3(dont work)/templates/index — копия.txt
+Modes/webui/backup/v3(dont work)/webui.py
+Modes/webui/backup/v3(dont work)/templates/index.html
+reqierements.txt
+test.db
+__init__.py
