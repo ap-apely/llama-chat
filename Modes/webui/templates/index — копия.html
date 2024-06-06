@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+        .chat-log {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fafafa;
+        }
+        .sidenav {
+            height: 100%;
+            width: 0;
+            position: fixed;
+            z-index: 1;
+            top: 0;
+            left: 0;
+            background-color: #111;
+            overflow-x: hidden;
+            transition: 0.5s;
+            padding-top: 60px;
+          }
+          
+          .sidenav a {
+            padding: 8px 8px 8px 32px;
+            text-decoration: none;
+            font-size: 25px;
+            color: #818181;
+            display: block;
+            transition: 0.3s;
+          }
+          
+          .sidenav a:hover {
+            color: #f1f1f1;
+          }
+          
+          .sidenav .closebtn {
+            position: absolute;
+            top: 0;
+            right: 25px;
+            font-size: 36px;
+            margin-left: 50px;
+          }
+          
+          @media screen and (max-height: 450px) {
+            .sidenav {padding-top: 15px;}
+            .sidenav a {font-size: 18px;}
+          }
+        input, button, select {
+            border-radius: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            width: calc(100% - 22px);
+            outline: none;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .create-account-button {
+            background-color: #28a745;
+        }
+        .create-account-button:hover {
+            background-color: #218838;
+        }
+        .create-chat-button {
+            background-color: #ffc107;
+        }
+        .create-chat-button:hover {
+            background-color: #e0a800;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="login-form" class="main">
+            <h2>Login</h2>
+            <input type="text" id="login-username" placeholder="Username">
+            <input type="password" id="login-password" placeholder="Password">
+            <button onclick="login()">Login</button>
+            <button class="switch-button" onclick="showRegistrationForm()">Register</button>
+        </div>
+        <div id="registration-form" class="main hidden">
+            <h2>Create Account</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <input type="text" id="full_name" placeholder="Full Name">
+            <input type="email" id="email" placeholder="Email">
+            <button class="create-account-button" onclick="createAccount()">Create Account</button>
+            <button class="switch-button" onclick="showLoginForm()">Back to Login</button>
+        </div>
+        <div id="chat-container" class="hidden">
+            <span style="font-size:30px;cursor:pointer" onclick="openNav()">&#9776; Menu</span>
+            <div id="mySidenav" class="sidenav">
+                <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+                <a href="#" onclick="createNewChat()">New chat</a>
+                <a href="#">Chats</a>
+              </div>
+            <select id="chat-select" onchange="selectChat()">
+                <option value="">Select a chat</option>
+            </select>
+            <div class="chat-log" id="chat-log"></div>
+            <input type="text" id="user-input" placeholder="Type your message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let API_BASE_URL = "http://127.0.0.1:5000"
+        let conversationId = null;
+        let token = null;
+	
+	function showRegistrationForm() {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('registration-form').classList.remove('hidden');
+        }
+
+        function showLoginForm() {
+            document.getElementById('registration-form').classList.add('hidden');
+            document.getElementById('login-form').classList.remove('hidden');
+        }
+
+        async function createAccount() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const full_name = document.getElementById('full_name').value;
+            const email = document.getElementById('email').value;
+
+            
+            const user_data = {
+                "username": username,
+                "password": password,
+                "full_name": full_name,
+                "email": email
+            };
+
+            const token_data ={
+                "username": username,
+                "password": password
+            }
+
+            const response = await fetch('/api/create-user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(user_data)
+            });
+            if (response.status === 200) {
+                alert('Account created successfully!');
+
+                // Login to get token
+                const login_response = await fetch(`/api/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(token_data)
+                });
+
+                if (login_response.status === 200) {
+                    const login_data = await login_response.json();
+                    token = login_data.access_token;
+
+                    // Hide registration form and show chat container
+                    document.getElementById('registration-form').classList.add('hidden');
+                    document.getElementById('chat-container').classList.remove('hidden');
+                } else {
+                    alert('Failed to login after account creation.');
+                }
+            } else if (response.status === 400) {
+                alert('User already exist');
+            } else{
+                alert(JSON.stringify(response));
+                alert("Failed creating account")
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            const login_data = {
+                "username": username,
+                "password": password
+            };
+
+            const response = await fetch(`${API_BASE_URL}/api/token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(login_data)
+            });
+
+            if (response.status === 200) {
+                const login_data = await response.json();
+                token = login_data.access_token;
+
+                // Hide login form and show chat container
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('chat-container').classList.remove('hidden');
+                loadChats();
+            } else {
+                alert('Failed to login: Invalid username or password');
+            }
+        }
+
+        async function createNewChat() {
+            const response = await fetch('/api/create-conversation', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            const newChatId = data.conversation_id;
+
+            if (newChatId) {
+                const chatSelect = document.getElementById('chat-select');
+                const option = document.createElement('option');
+                option.value = newChatId;
+                option.text = `Chat ${newChatId}`;
+                chatSelect.appendChild(option);
+                chatSelect.value = newChatId;
+                conversationId = newChatId;
+                document.getElementById('chat-log').innerHTML = ''; // Clear chat log
+            } else {
+                alert('Failed to create a new chat.');
+            }
+        }
+
+        function selectChat() {
+            const chatSelect = document.getElementById('chat-select');
+            conversationId = chatSelect.value;
+            document.getElementById('chat-log').innerHTML = ''; // Clear chat log
+        }
+
+        function openNav() {
+            document.getElementById("mySidenav").style.width = "20%";
+          }
+          
+          function closeNav() {
+            document.getElementById("mySidenav").style.width = "0";
+          }
+
+        async function sendMessage() {
+            const userInput = document.getElementById('user-input').value;
+            document.getElementById('user-input').value = '';
+            appendMessage('You', userInput);
+
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ user_input: userInput, conversation_id: conversationId })
+            });
+            
+            const data = await response.text();
+            appendMessage('Bot', data);
+        }
+
+        function appendMessage(sender, message) {
+            const chatLog = document.getElementById('chat-log');
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = '<strong>' + sender + ': </strong>' + message;
+            chatLog.appendChild(messageDiv);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+    </script>
+</body>
+</html>
