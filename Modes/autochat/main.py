@@ -1,9 +1,14 @@
-from telethon import TelegramClient, events, Button
+from aiogram import Bot, Dispatcher, types
+import asyncio
 import requests
 import sqlite3
-import json
 
-# Initialize the database
+API_TOKEN = '7410087255:AAHBI-9sYuWXGtZH_MRipYbl2nDini54FxU'
+API_BASE_URL = "http://192.168.101.134:8000"
+
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher()
+
 def initialize_db():
     conn = sqlite3.connect('bot.db')
     cursor = conn.cursor()
@@ -21,17 +26,6 @@ def initialize_db():
     conn.close()
 
 initialize_db()
-
-# API base URL and token (replace with your actual values)
-API_BASE_URL = "http://192.168.101.190:8000"
-API_ID = 'api_id'
-API_HASH = 'api_hash'
-BOT_TOKEN = 'bot_token'
-
-# Initialize the client
-client = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-
-# Generate token (dummy implementation for example purposes)
 
 def generate_token(user_id, username):
     user_data = {"username": f"{username}", "password": f"{user_id}"}
@@ -81,28 +75,20 @@ def add_or_update_user(user_id, username, token):
     ''', (user_id, username, token, "", ""))
     conn.commit()
     conn.close()
-
-# Handler for the /start command
-@client.on(events.NewMessage(pattern='/start'))
-async def start(event):
-    sender = await event.get_sender()
+"""
+@dp.message(commands=['start', 'help'])
+async def start(message: types.Message):
+    sender = await message.from_user
     user_id = sender.id
     username = sender.username
     token = register_user(user_id, username)
     if token:
         add_or_update_user(user_id, username, token)
-        await event.respond(f'Hi {username}! You was sucessfully registered✅')
-        buttons = [
-            [Button.inline("🌼New Conversation", data="menu_newconv")],
-            [Button.inline("🌺All Conversations", data="menu_allconv")]
-        ]
-        await event.respond("Choose an option:", buttons=buttons)   
+        await message.reply(f'Hi {username}! You was sucessfully registered✅')
     else:
-        await event.respond('❌Failed to register(maybe you already register💢)')
- 
-    raise events.StopPropagation
-
-# Create a new conversation
+        await message.reply('❌Failed to register(maybe you already register💢)')
+"""
+        
 def create_conversation(token):
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(f"{API_BASE_URL}/create-conversation", headers=headers)
@@ -138,78 +124,24 @@ def update_current_conversation(user_id, conversation_id):
     conn.commit()
     conn.close()
 
+@dp.message()
+async def echo(message: types.Message):
+    """
+    This handler will be called when user sends any message
+    """
+    
+    await message.reply(message.text)
 
+@dp.business_connection()
+async def connection(connection: types.BusinessConnection):
+    print("test")
+    print(connection.is_enabled)
 
-# Handler for the /newconversation command
-@client.on(events.NewMessage(pattern='/newconversation'))
-async def new_conversation(event):
-    user_id = event.sender_id
-    conn = sqlite3.connect('bot.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT token FROM users WHERE userid=?', (user_id,))
-    result = cursor.fetchone()
-    if result:
-        token = result[0]
-        conversation_id = create_conversation(token)
-        if conversation_id:
-            update_current_conversation(user_id, conversation_id)
-            update_conversations(user_id, conversation_id)
-            await event.respond(f'✅New conversation created with ID: {conversation_id}')
-        else:
-            await event.respond('❌Failed to create a new conversation.')
-    conn.close()
-    raise events.StopPropagation
-
-# Handler for the /allconversations command
-@client.on(events.NewMessage(pattern='/allconversations'))
-async def all_conversations(event):
-    user_id = event.sender_id
-    conn = sqlite3.connect('bot.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT conversationids FROM users WHERE userid=?', (user_id,))
-    result = cursor.fetchone()
-    conn.close()
-    if result:
-        conversation_ids = result[0].split(',')
-        buttons = [Button.inline(f"🍃Conversation {conv_id}", data=f"conv_{conv_id}") for conv_id in conversation_ids]
-        await event.respond('🌺Here are your conversations:', buttons=buttons)
-    else:
-        await event.respond('🥀You have no conversations.')
-
-@client.on(events.CallbackQuery(pattern=b'conv_'))
-async def callback_query_handler(event):
-    selected_conversation = event.data.decode('utf-8')[5:]
-    user_id = event.sender_id
-    update_current_conversation(user_id, selected_conversation)
-    await event.respond(f'🌼Selected conversation ID: {selected_conversation}')
-    raise events.StopPropagation
-
-@client.on(events.NewMessage(pattern='/menu'))
-async def menu(event):
-    buttons = [
-        [Button.inline("New Conversation", data="menu_newconv")],
-        [Button.inline("All Conversations", data="menu_allconv")]
-    ]
-    await event.respond("Choose an option:", buttons=buttons)
-
-# Handler for menu button presses
-@client.on(events.CallbackQuery(pattern=b'menu_'))
-async def menu_handler(event):
-    data = event.data.decode('utf-8')
-    if data == "menu_newconv":
-        await new_conversation(event)
-    elif data == "menu_allconv":
-        await all_conversations(event)
-
-# Handler for incoming messages to chat
-@client.on(events.NewMessage)
-async def chat(event):
-    user_id = event.sender_id
-    message_text = event.message.message
-
-    # Skip commands
-    if message_text.startswith('/'):
-        return
+@dp.business_message()
+async def business_message(message : types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username
+    message_text = message.text
 
     conn = sqlite3.connect('bot.db')
     cursor = conn.cursor()
@@ -217,6 +149,7 @@ async def chat(event):
     result = cursor.fetchone()
     conn.close()
     
+
     if result:
         token, current_conversation = result
         headers = {"Authorization": f"Bearer {token}"}
@@ -226,11 +159,25 @@ async def chat(event):
             bot_response = response.json().get("response")["content"]
         else:
             bot_response = "Error while processing chat, contact with owner!"
-        await event.respond(f"{bot_response}")
+        await message.reply(f"{bot_response}")
+    else:
+        token = register_user(user_id, username)
+        add_or_update_user(user_id, username, token)
+        cid = create_conversation(token)
+        update_conversations(user_id, cid)
+        update_current_conversation(user_id, cid)
 
-def main():
-    client.start()
-    client.run_until_disconnected()
+        headers = {"Authorization": f"Bearer {token}"}
+        params = {'message': message_text, 'conversation_id': cid}
+        response = requests.post(f"{API_BASE_URL}/chat", params=params, headers=headers)
+        if response.status_code == 200:
+            bot_response = response.json().get("response")["content"]
+        else:
+            bot_response = "Error while processing chat, contact with owner!"
+        await message.reply(f"{bot_response}")
 
-if __name__ == '__main__':
-    main()
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -5,8 +5,6 @@ import threading
 import time
 from Llama.llama import ChatLLama
 
-
-
 def main():
     try:
         llama = ChatLLama.loadllama()
@@ -20,4 +18,5 @@ if __name__ == '__main__':
     print('[+]Starting...') 
     main()
 
+    
     
